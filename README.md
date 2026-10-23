@@ -94,3 +94,4 @@ uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload
 | `GET` | `/api/v1/documents/{id}` | Retrieves document details and chunk counts |
 | `GET` | `/api/v1/documents/{id}/chunks` | Retrieves extracted chunks with section/page info |
 | `GET` | `/api/v1/jobs/{id}` | Retrieves ingestion job status and failure telemetry |
+| `POST` | `/api/v1/rag/query` | Answers questions via similarity retrieval and grounded citations |
