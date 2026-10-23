@@ -68,6 +68,50 @@ class IngestionJobError(AppException):
         self.is_retryable = is_retryable
 
 
+class EmbeddingError(AppException):
+    """Raised when embedding generation fails."""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            details=details,
+        )
+
+
+class LLMConfigurationError(AppException):
+    """Raised when LLM API keys or provider configurations are missing."""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            details=details,
+        )
+
+
+class LLMTimeoutError(AppException):
+    """Raised when an LLM call exceeds the allowed response timeout."""
+
+    def __init__(self, message: str = "LLM request timed out", details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            details=details,
+        )
+
+
+class EmptyRetrievalError(AppException):
+    """Raised when retrieval yields zero chunks for answering a query."""
+
+    def __init__(self, message: str = "No relevant document chunks found", details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_404_NOT_FOUND,
+            details=details,
+        )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registers standard exception handlers with FastAPI application."""
 

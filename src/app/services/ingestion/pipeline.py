@@ -22,6 +22,7 @@ from src.app.services.ingestion.hasher import (
     find_document_by_hash,
 )
 from src.app.services.ingestion.parsers import get_parser_for_type
+from src.app.services.rag.embeddings import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +115,24 @@ class IngestionPipeline:
             )
             self.db.add(version)
 
-            # Persist Chunks
-            for chunk_data in extraction.chunks:
+            # Generate real embeddings for all chunks
+            chunk_texts = [c.content for c in extraction.chunks]
+            try:
+                embedding_service = get_embedding_service()
+                chunk_embeddings = embedding_service.embed_batch(chunk_texts)
+            except Exception as e:
+                logger.error(f"Failed to generate embeddings during ingestion: {e}", exc_info=True)
+                chunk_embeddings = [None] * len(chunk_texts)
+
+            # Persist Chunks with embeddings and metadata
+            for i, chunk_data in enumerate(extraction.chunks):
+                meta = dict(chunk_data.metadata)
+                meta["filename"] = filename
+                meta["source_uri"] = filename
+                meta["file_type"] = file_type.value
+
+                emb = chunk_embeddings[i] if i < len(chunk_embeddings) else None
+
                 chunk = Chunk(
                     id=str(uuid.uuid4()),
                     document_id=doc_id,
@@ -125,7 +142,8 @@ class IngestionPipeline:
                     section_title=chunk_data.section_title,
                     page_number=chunk_data.page_number,
                     token_count=chunk_data.token_count,
-                    chunk_metadata=chunk_data.metadata,
+                    chunk_metadata=meta,
+                    embedding=emb,
                 )
                 self.db.add(chunk)
 

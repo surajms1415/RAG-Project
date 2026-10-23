@@ -85,6 +85,7 @@ class Chunk(TimeStampedModel):
     page_number = Column(Integer, nullable=True)
     token_count = Column(Integer, nullable=True)
     chunk_metadata = Column(JSON, nullable=True, default=dict)
+    embedding = Column(JSON, nullable=True)
 
     # Relationships
     document = relationship("Document", back_populates="chunks")

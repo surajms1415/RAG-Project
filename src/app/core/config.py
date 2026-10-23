@@ -40,9 +40,17 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: Set[str] = {".pdf", ".docx", ".pptx", ".csv"}
     MAX_INGESTION_RETRIES: int = 3
 
-    # LLM & Orchestration (Secrets)
+    # LLM & Orchestration (Secrets & Parameters)
     GEMINI_API_KEY: str | None = Field(default=None, description="Google Gemini API Key")
+    EMBEDDING_PROVIDER: str = Field(
+        default="sentence-transformers", description="sentence-transformers or gemini"
+    )
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    LLM_PROVIDER: str = Field(default="gemini", description="LLM provider: gemini or mock")
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    RAG_TOP_K: int = 4
+    RAG_SIMILARITY_THRESHOLD: float = 0.30
+    LLM_TIMEOUT_SECONDS: int = 30
 
     @field_validator("DATABASE_URL")
     @classmethod
