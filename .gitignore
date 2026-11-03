@@ -11,3 +11,11 @@ venv/
 dist/
 build/
 *.egg-info/
+
+# Frontend
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+*.log
+

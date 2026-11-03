@@ -1,0 +1,227 @@
+{
+  "name": "InsightFlow AI - Document Ingestion Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-ingestion",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-node",
+      "name": "Document Ingestion Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "insightflow-doc-ingestion-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Basic input validation for document ingestion payload\nconst body = $input.first().json.body || $input.first().json;\n\nconst filename = body.filename || '';\nconst fileBase64 = body.file_base64 || '';\nconst fileUrl = body.file_url || '';\nconst metadata = body.metadata || {};\n\nconst allowedExtensions = ['.pdf', '.docx', '.pptx', '.csv'];\nconst ext = filename.lastIndexOf('.') !== -1 ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';\n\nlet isValid = true;\nlet errorMessage = '';\n\nif (!filename || filename.trim() === '') {\n  isValid = false;\n  errorMessage = 'Validation Error: \"filename\" is required in the request payload.';\n} else if (!allowedExtensions.includes(ext)) {\n  isValid = false;\n  errorMessage = `Validation Error: Unsupported file extension \"${ext}\". Allowed: ${allowedExtensions.join(', ')}`;\n} else if (!fileBase64 && !fileUrl) {\n  isValid = false;\n  errorMessage = 'Validation Error: Either \"file_base64\" or \"file_url\" must be provided.';\n}\n\nreturn [{\n  json: {\n    isValid,\n    errorMessage,\n    filename,\n    file_base64: fileBase64,\n    file_url: fileUrl,\n    metadata,\n    workflow_id: $execution.id || 'n8n-exec-manual'\n  }\n}];"
+      },
+      "id": "validate-input-node",
+      "name": "Validate Ingestion Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-valid-node",
+      "name": "Is Payload Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"error\": \"{{ $json.errorMessage }}\",\n  \"received_payload\": {\n    \"filename\": \"{{ $json.filename }}\"\n  }\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-validation-error",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.BACKEND_API_URL || 'http://localhost:8000').replace(/\\/$/, '') }}/api/v1/documents/webhook-ingest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filename\": \"{{ $json.filename }}\",\n  \"file_base64\": {{ $json.file_base64 ? JSON.stringify($json.file_base64) : 'null' }},\n  \"file_url\": {{ $json.file_url ? JSON.stringify($json.file_url) : 'null' }},\n  \"metadata\": {{ JSON.stringify($json.metadata) }},\n  \"workflow_id\": \"{{ $json.workflow_id }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "http-forward-backend",
+      "name": "Forward to Backend Ingestion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.statusCode }}",
+              "operation": "equal",
+              "value2": 201
+            }
+          ]
+        }
+      },
+      "id": "if-backend-success",
+      "name": "Check Backend Response",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"{{ $json.body.message }}\",\n  \"document_id\": \"{{ $json.body.document.id }}\",\n  \"job_id\": \"{{ $json.body.job_id }}\",\n  \"is_duplicate\": {{ $json.body.is_duplicate }},\n  \"title\": \"{{ $json.body.document.title }}\",\n  \"file_type\": \"{{ $json.body.document.file_type }}\",\n  \"workflow_execution_id\": \"{{ $execution.id }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-success",
+      "name": "Return Success Notification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"failure\",\n  \"error\": \"Document ingestion backend processing failed.\",\n  \"statusCode\": {{ $json.statusCode || 500 }},\n  \"backend_details\": {{ JSON.stringify($json.body || {}) }},\n  \"workflow_execution_id\": \"{{ $execution.id }}\"\n}",
+        "options": {
+          "responseCode": "={{ $json.statusCode || 500 }}"
+        }
+      },
+      "id": "respond-failure",
+      "name": "Return Ingestion Failure",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "Document Ingestion Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Ingestion Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Ingestion Request": {
+      "main": [
+        [
+          {
+            "node": "Is Payload Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Payload Valid?": {
+      "main": [
+        [
+          {
+            "node": "Forward to Backend Ingestion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Backend Ingestion": {
+      "main": [
+        [
+          {
+            "node": "Check Backend Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Backend Response": {
+      "main": [
+        [
+          {
+            "node": "Return Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Ingestion Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

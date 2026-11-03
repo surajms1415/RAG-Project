@@ -3,7 +3,7 @@ import time
 from typing import Any, Dict, Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import StaticPool, NullPool
 from src.app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

@@ -52,6 +52,14 @@ class Document(TimeStampedModel):
         order_by="IngestionJob.created_at.desc()",
     )
 
+    @property
+    def filename(self) -> str:
+        return self.title or self.source_uri
+
+    @property
+    def chunk_count(self) -> int:
+        return len(self.chunks) if self.chunks else 0
+
 
 class DocumentVersion(TimeStampedModel):
     """Represents a specific version of a document."""

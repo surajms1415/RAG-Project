@@ -12,6 +12,7 @@ from src.app.models.document import Document, DocumentVersion, Chunk
 from src.app.models.job import IngestionJob
 from src.app.models.conversation import Conversation, Message
 from src.app.models.workflow import WorkflowExecution
+from src.app.models.analytics import Customer, Product, Order, OrderItem
 
 __all__ = [
     "Base",
@@ -29,4 +30,8 @@ __all__ = [
     "Conversation",
     "Message",
     "WorkflowExecution",
+    "Customer",
+    "Product",
+    "Order",
+    "OrderItem",
 ]
